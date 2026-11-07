@@ -84,6 +84,8 @@ class EcoFundingAgentCore:
     """Gateway-facing core. Pure functions underneath; envelopes on top."""
 
     name = AGENT_NAME
+    KNOWN_ACTIONS = frozenset(ACTIONS)
+    READ_ACTIONS = frozenset(ACTIONS)  # every action is a read: nothing is written anywhere
 
     def __init__(self, client_factory: Callable[[], ReadOnlyVergeCommonClient] | None = None):
         from . import __version__

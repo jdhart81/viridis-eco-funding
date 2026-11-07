@@ -142,6 +142,7 @@ def test_adapter_loads_like_the_gateway_and_lists_five_read_only_tools():
     assert isinstance(module.agent, EcoFundingAgentCore)
     tools = asyncio.run(module.mcp.list_tools())
     assert sorted(t.name for t in tools) == sorted(ACTIONS)
+    assert module.agent.READ_ACTIONS == module.agent.KNOWN_ACTIONS == frozenset(ACTIONS)
     for tool in tools:
         ann = tool.annotations
         read_only = getattr(ann, "read_only_hint", getattr(ann, "readOnlyHint", None))
@@ -187,3 +188,13 @@ def test_AA7_quickstart_worked_example_is_valid(woodland_site):
     site = request["params"]["arguments"]["site"]
     out = build().process_sync({"action": "value_site", "site": clone(site)})
     assert out["status"] == "ok" and out["result"]["headline"]["complexity_score"] > 0
+
+
+def test_open_core_layout_shim():
+    """The open-core split requires src/core.py + adapters/mcp_server.py + tests/ per agent."""
+    import importlib.util as iu
+    spec = iu.spec_from_file_location("eco_core_shim", ROOT / "src" / "core.py")
+    module = iu.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.build().describe()["name"] == "viridis-eco-funding"
+    assert (ROOT / "adapters" / "mcp_server.py").is_file() and (ROOT / "tests").is_dir()

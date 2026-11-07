@@ -4,6 +4,7 @@ import copy
 import json
 import random
 import socket
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "examples" / "data"
+if str(ROOT / "src") not in sys.path:  # fleet runner: tests run without an installed package
+    sys.path.insert(0, str(ROOT / "src"))
 
 
 def load_json(name: str) -> Any:
@@ -130,3 +133,15 @@ def block_outbound_network(request, monkeypatch):
     monkeypatch.setattr(socket.socket, "connect", _guarded(_real_connect))
     monkeypatch.setattr(socket.socket, "connect_ex", _guarded(_real_connect_ex))
     yield
+
+
+def has_mcp_v2() -> bool:
+    """The standalone vef-mcp server targets mcp 2.x; the fleet adapter supports 1.x too."""
+    try:
+        import mcp.server.mcpserver  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
+
+requires_mcp_v2 = pytest.mark.skipif(not has_mcp_v2(), reason="standalone vef-mcp server needs mcp 2.x")

@@ -63,7 +63,7 @@ def test_no_conjecture_claimed_where_bound_is_absent(woodland_site):
 
 
 def test_mcp_outputs_carry_the_label(woodland_site):
-    pytest.importorskip("mcp")
+    pytest.importorskip("mcp.server.mcpserver", reason="standalone vef-mcp server needs mcp 2.x")
     from viridis_eco_funding.mcp_server import build_server
 
     server = build_server()

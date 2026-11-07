@@ -180,7 +180,7 @@ def test_global_urlopen_never_called_with_write_methods(monkeypatch, synthetic_r
 
 
 def test_mcp_tools_are_annotated_read_only():
-    pytest.importorskip("mcp")
+    pytest.importorskip("mcp.server.mcpserver", reason="standalone vef-mcp server needs mcp 2.x")
     import asyncio
 
     from viridis_eco_funding.mcp_server import build_server

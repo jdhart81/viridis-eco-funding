@@ -34,10 +34,15 @@ def user_facing_texts():
     pytest.importorskip("mcp")
     import asyncio
 
-    from viridis_eco_funding.mcp_server import INSTRUCTIONS, build_server
+    from viridis_eco_funding.fleet import INSTRUCTIONS
     yield "mcp instructions", INSTRUCTIONS
-    for tool in asyncio.run(build_server().list_tools()):
-        yield f"tool {tool.name}", tool.description
+    try:
+        from viridis_eco_funding.mcp_server import build_server
+    except ImportError:  # mcp 1.x: only the fleet adapter is available
+        build_server = None
+    if build_server is not None:
+        for tool in asyncio.run(build_server().list_tools()):
+            yield f"tool {tool.name}", tool.description
     import importlib.util
     spec = importlib.util.spec_from_file_location("vocab_adapter", ROOT / "adapters" / "mcp_server.py")
     adapter = importlib.util.module_from_spec(spec)

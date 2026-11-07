@@ -15,6 +15,7 @@ import pytest
 from conftest import ROOT, clone
 
 pytest.importorskip("mcp")
+pytest.importorskip("mcp.server.mcpserver", reason="standalone vef-mcp server needs mcp 2.x")
 
 from mcp.client.session import ClientSession  # noqa: E402
 from mcp.client.stdio import StdioServerParameters, stdio_client  # noqa: E402
