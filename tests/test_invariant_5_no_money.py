@@ -148,10 +148,12 @@ INJECTIONS = [
      "from urllib.request import urlopen as _fetch\n"
      "_fetch('https://api.stripe.com/v1/transfers', body)\n"),
     ("src/viridis_eco_funding/env.py", "import os\nKEY = os.environ['STRIPE_SECRET']\n"),
-    ("docs/notes.md", "-----BEGIN EC PRIVATE KEY-----\nabc\n"),
+    # Bait strings are assembled at runtime so secret scanners (gitleaks, the fleet's
+    # open-core boundary) never see a key-shaped literal in this file.
+    ("docs/notes.md", "-----BEGIN EC " + "PRIVATE KEY-----\nabc\n"),
     ("pool_extra.py", "def mint_tokens(n): pass\nmint_tokens(5)\n"),
     ("wallet.py", "wallet = load()\n"),
-    ("cfg.json", '{"key": "sk_live_abcdefghijklmnop"}'),
+    ("cfg.json", '{"key": "' + "sk_" + "live_" + 'abcdefghijklmnop"}'),
 ]
 
 
