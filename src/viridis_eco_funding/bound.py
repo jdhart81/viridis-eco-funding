@@ -7,7 +7,7 @@ Stated bound (Hart, "The Intelligence Bound", working paper; PRE submission 2026
 with P the power the system dissipates (W), D in [0, 1] the data richness of its
 environment, T temperature (K). The PRE form is I_dot <= min(rho B, P / (k_B T ln 2)).
 
-Footing used here (Viridis internal correction note, 2026-06-16): reading the bound as a
+Footing used here (Viridis's corrected footing, June 2026): reading the bound as a
 ceiling on the rate of *acquiring* information is challenged, because acquisition can be
 thermodynamically reversible (Wolpert; Bennett; Sagawa & Ueda). Landauer's principle does
 hold for *erasure*, so this package reads the term on the maintenance side: the largest
