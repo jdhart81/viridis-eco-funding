@@ -15,6 +15,7 @@
 | **Verification hook** (`make_receipt`, `verify_receipt`) | Sealed receipts that hold the normalized inputs, a SHA-256 digest of those inputs, the method version and the result. Anyone can re-run a receipt offline and get byte-identical output. A receipt can optionally bind a VergeCommon public project, read with a public GET only. |
 | **Pool design** (`simulate_pool`) | A schema and simulator for pledges, milestone releases and outcome-linked releases. Accounting uses integer minor units: releases plus remaining balance always equal pledges, and nothing is released without a met rule. It is a model only. There is no payment code. |
 | **MCP server** (`vef-mcp`) | Five read-only tools: `value_site`, `explain_valuation`, `verify_receipt`, `simulate_pool`, `describe_method`. Runs over stdio or Streamable HTTP. Agents can start from [`llms.txt`](llms.txt) and [`AGENTS.md`](AGENTS.md). |
+| **Viridis fleet mount** (`adapters/mcp_server.py`) | The same five tools, packaged for the Viridis agent gateway at `/eco-funding/mcp`, as a declared **free rail**. Success envelopes teach `next_steps` edges to the notary, regulatory-radar and ghg-ledger mounts. It passes the fleet's admission invariants AA1–AA7 (`tests/test_fleet_admission.py`). See [`deploy/fleet/MOUNT.md`](deploy/fleet/MOUNT.md). |
 
 ## Quick start
 

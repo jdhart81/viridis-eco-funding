@@ -4,7 +4,7 @@ Guidance for AI agents that **call** this package's tools and for coding agents 
 
 ## Calling the tools (MCP)
 
-Server: `vef-mcp` runs over stdio. `vef-mcp --transport streamable-http --host 127.0.0.1 --port 8765` serves Streamable HTTP, stateless with JSON responses, at `POST /mcp`. Every tool is read-only and idempotent.
+Fleet endpoint, once mounted: `https://mcp.viridisconservation.com/eco-funding/mcp`. It is a free rail, and its success envelopes carry `next_steps` to other fleet mounts. Standalone server: `vef-mcp` runs over stdio. `vef-mcp --transport streamable-http --host 127.0.0.1 --port 8765` serves Streamable HTTP, stateless with JSON responses, at `POST /mcp`. Every tool is read-only and idempotent.
 
 | Tool | Input | What you get |
 | --- | --- | --- |
@@ -58,4 +58,6 @@ Hard boundaries. Each one is a test, and none is negotiable without an explicit 
 - **Vocabulary.** For funding concepts, docs, tool descriptions and output text use only *pledge*, *pool* and *outcome-linked release*. `FORBIDDEN` in `tests/test_docs_and_vocabulary.py` lists the financial-product terms that must never appear, and the test enforces the list.
 - **Publishing.** Do not make the repository public, publish to PyPI, list it in an MCP registry or post about it without the maintainer's explicit approval.
 
-Layout: `inputs.py` (schema), `dscore.py`, `soil.py`, `connectivity.py`, `bound.py`, `valuation.py` (core), `explain.py`, `receipt.py`, `vergecommon.py`, `pool/`, `mcp_server.py`, `cli.py`.
+Fleet: `adapters/mcp_server.py` must keep loading under the gateway's pinned `mcp==1.28.1`. It exposes module-level `mcp` and `agent`, and `deploy/fleet/gateway_check.py` emulates the mount. Keep `agent.yaml`, `deploy/fleet/server.json` and `__version__` in lockstep; `tests/test_fleet_admission.py` checks this.
+
+Layout: `fleet.py` (gateway core, envelopes, next_steps), `inputs.py` (schema), `dscore.py`, `soil.py`, `connectivity.py`, `bound.py`, `valuation.py` (core), `explain.py`, `receipt.py`, `vergecommon.py`, `pool/`, `mcp_server.py`, `cli.py`.

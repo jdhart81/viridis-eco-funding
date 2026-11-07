@@ -2,7 +2,7 @@
 
 > Open, read-only tools for people and AI agents to value a site's ecological complexity (K = D* x ECA, in complexity-hectares, from the published D-Score, GSIP soil indicators and HDFM-linked verified habitat), produce reproducible sealed receipts, and simulate pledge pools with milestone and outcome-linked release rules. Part of the Viridis Conservation open-source stack, alongside VergeCommon, HDFM and GSIP. The intelligence-bound complexity-capacity term is a conjecture and is labelled as one in every output. No money movement: no payments, wallets, keys or tokens. Any real funding pool needs legal review before money moves.
 
-Method version: vef-method/0.1.0. MCP server: `vef-mcp` (stdio) or `vef-mcp --transport streamable-http` (POST /mcp).
+Method version: vef-method/0.1.0. Fleet endpoint: https://mcp.viridisconservation.com/eco-funding/mcp (free rail; live once mounted). Standalone MCP server: `vef-mcp` (stdio) or `vef-mcp --transport streamable-http` (POST /mcp).
 
 ## Start here
 
@@ -26,6 +26,8 @@ Method version: vef-method/0.1.0. MCP server: `vef-mcp` (stdio) or `vef-mcp --tr
 - [Example pool](examples/data/woodland_pool.json)
 
 ## Optional
+
+- [Fleet mount kit](deploy/fleet/MOUNT.md): gateway wiring, registry manifest, quickstart
 
 - [Invariants and how each is enforced](docs/INVARIANTS.md)
 - [Changelog](CHANGELOG.md)

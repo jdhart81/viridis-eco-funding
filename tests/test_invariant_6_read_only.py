@@ -83,7 +83,7 @@ def scan_network(src: Path) -> list[str]:
 
 
 def test_static_source_is_read_only():
-    hits = scan_network(SRC)
+    hits = scan_network(SRC) + scan_network(ROOT / "adapters")
     assert not hits, "\n".join(hits)
 
 
@@ -113,7 +113,7 @@ def test_network_scanner_catches_injected_violations(tmp_path, target, line):
 
 
 def test_static_no_file_writes_in_source():
-    for path in SRC.rglob("*.py"):
+    for path in list(SRC.rglob("*.py")) + list((ROOT / "adapters").rglob("*.py")):
         text = path.read_text(encoding="utf-8")
         for pattern in (r"open\([^)]*['\"][wax]\+?b?['\"]", r"\.write_text\(", r"\.write_bytes\(",
                         r"\bos\.remove\b", r"\bshutil\b"):

@@ -15,3 +15,8 @@ First working version (private repository).
   - Pools: rules reward improvement only. Receipt-backed rules need `site_id` and `calendar`, and each receipt is single-use and bound to the period of its `observed_at`.
   - Labels: the explain label is derived from content, not from a caller-supplied flag.
   - Invariant 5 and 6 scanners: an AST scan of all Python, wider patterns, and mutation self-tests. A suite-wide socket guard blocks outbound connections.
+- Viridis fleet admission (AA1–AA7):
+  - A gateway adapter (`adapters/mcp_server.py`, compatible with mcp 1.28.1 and 2.x) and a fleet core with `describe`, `health`, `process` and `next_steps` edges.
+  - `agent.yaml` declares the agent a free rail and records its revenue model and thesis connection.
+  - Registry `server.json` and `tools.json`, a mount kit and a quickstart snippet.
+  - A gateway emulation check over HTTP, and `tests/test_fleet_admission.py`.

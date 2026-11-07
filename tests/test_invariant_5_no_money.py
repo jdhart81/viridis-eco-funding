@@ -179,7 +179,7 @@ def test_no_payment_dependencies():
 def test_source_imports_are_stdlib_or_mcp():
     allowed_third_party = {"mcp", "uvicorn"}
     stdlib = set(sys.stdlib_module_names)
-    for path in (ROOT / "src").rglob("*.py"):
+    for path in list((ROOT / "src").rglob("*.py")) + list((ROOT / "adapters").rglob("*.py")):
         for _, root in _import_roots(ast.parse(path.read_text(encoding="utf-8"))):
             assert root in stdlib or root in allowed_third_party or root == "viridis_eco_funding", \
                 f"{path.relative_to(ROOT)} imports {root}"

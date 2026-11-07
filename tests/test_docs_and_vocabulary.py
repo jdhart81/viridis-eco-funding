@@ -14,7 +14,8 @@ from viridis_eco_funding import METHOD_VERSION, describe_method, make_receipt, v
 from viridis_eco_funding.canonical import sha256_hex, to_plain_json
 
 DOCS = ["README.md", "METHOD.md", "LIMITS.md", "AGENTS.md", "llms.txt", "NOTICE", "CHANGELOG.md",
-        "docs/INVARIANTS.md"]
+        "docs/INVARIANTS.md", "agent.yaml", "deploy/fleet/MOUNT.md", "deploy/fleet/QUICKSTART_SNIPPET.md",
+        "deploy/fleet/server.json", "deploy/fleet/tools.json"]
 FORBIDDEN = [r"\binvest\w*", r"\bsecurit(?:y|ies)\b", r"\breturns?\b", r"\byields?\b", r"\bROI\b",
              r"\bdividends?\b", r"\bprofits?\b", r"\binterest rate", r"\bAPY\b", r"\bAPR\b",
              r"\bstaking\b"]
@@ -28,6 +29,8 @@ def user_facing_texts():
         if cell["cell_type"] == "markdown":
             yield f"notebook cell {i}", "".join(cell["source"])
     yield "describe_method", json.dumps(to_plain_json(describe_method()))
+    from viridis_eco_funding.fleet import build as _build_fleet
+    yield "fleet describe", json.dumps(_build_fleet().describe())
     pytest.importorskip("mcp")
     import asyncio
 
@@ -35,6 +38,12 @@ def user_facing_texts():
     yield "mcp instructions", INSTRUCTIONS
     for tool in asyncio.run(build_server().list_tools()):
         yield f"tool {tool.name}", tool.description
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("vocab_adapter", ROOT / "adapters" / "mcp_server.py")
+    adapter = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(adapter)
+    for tool in asyncio.run(adapter.mcp.list_tools()):
+        yield f"adapter tool {tool.name}", tool.description
 
 
 def test_docs_exist():
