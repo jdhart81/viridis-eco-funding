@@ -179,7 +179,8 @@ def test_no_payment_dependencies():
 
 
 def test_source_imports_are_stdlib_or_mcp():
-    allowed_third_party = {"mcp", "uvicorn"}
+    # fleet_utils: the fleet's isError helper (contract C4), present only inside fleet trees
+    allowed_third_party = {"mcp", "uvicorn", "fleet_utils"}
     stdlib = set(sys.stdlib_module_names)
     for path in list((ROOT / "src").rglob("*.py")) + list((ROOT / "adapters").rglob("*.py")):
         for _, root in _import_roots(ast.parse(path.read_text(encoding="utf-8"))):

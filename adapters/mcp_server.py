@@ -93,6 +93,23 @@ async def describe_method() -> Dict[str, Any]:
     return await _run({"action": "describe_method"})
 
 
+# Fleet contract C4 (fleet E1-E8): inside a fleet tree, report {"status": "error"} results to
+# MCP clients as tool errors (isError) without changing the body. Standalone there is no
+# fleet_utils, and this is a no-op.
+try:
+    from fleet_utils.mcp_errors import flag_error_results
+except ImportError:  # loaded without the fleet root on sys.path, as the gateway does
+    _fleet_root = Path(__file__).resolve().parents[2]
+    if (_fleet_root / "fleet_utils").is_dir() and str(_fleet_root) not in sys.path:
+        sys.path.append(str(_fleet_root))
+    try:
+        from fleet_utils.mcp_errors import flag_error_results
+    except ImportError:  # standalone repository: nothing to wire
+        def flag_error_results(server: Any) -> int:
+            return 0
+flag_error_results(mcp)
+
+
 if __name__ == "__main__":
     if "--serve" in sys.argv:
         mcp.run()

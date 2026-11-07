@@ -1,5 +1,9 @@
 # Codex prompt: mount viridis-eco-funding on the Viridis gateway
 
+> **Superseded (2026-11-07).** The mount is live: fleet-service PR #68 and the production
+> overlay release in PR #69. The vendored folder is `eco-funding-agent/`, and there is no
+> x402 catalog metadata entry. `MOUNT.md` is the current record; this prompt is kept as history.
+
 Paste into a Codex session that runs in `jdhart81/viridis-fleet-service`, on Justin's Mac with the Keychain GitHub login (see that repo's AGENTS.md "GitHub access baseline").
 
 ---

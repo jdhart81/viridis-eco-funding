@@ -8,6 +8,7 @@ import asyncio
 import importlib.util
 import json
 import re
+import shutil
 import subprocess
 import sys
 
@@ -188,6 +189,32 @@ def test_AA7_quickstart_worked_example_is_valid(woodland_site):
     site = request["params"]["arguments"]["site"]
     out = build().process_sync({"action": "value_site", "site": clone(site)})
     assert out["status"] == "ok" and out["result"]["headline"]["complexity_score"] > 0
+
+
+def test_fleet_contract_C4_error_flagging_is_wired_inside_a_fleet_tree(tmp_path):
+    """Fleet C4: in a fleet tree the adapter wraps its tools with fleet_utils'
+    flag_error_results (isError on error envelopes); standalone it is a no-op."""
+    pytest.importorskip("mcp")
+    fleet = tmp_path / "fleet"
+    (fleet / "fleet_utils").mkdir(parents=True)
+    (fleet / "fleet_utils" / "__init__.py").write_text("")
+    (fleet / "fleet_utils" / "mcp_errors.py").write_text(
+        "CALLS = []\n"
+        "def flag_error_results(server):\n"
+        "    CALLS.append(server)\n"
+        "    return 5\n")
+    agent_dir = fleet / "eco-funding-agent"
+    shutil.copytree(ROOT / "adapters", agent_dir / "adapters")
+    shutil.copytree(ROOT / "src", agent_dir / "src", ignore=shutil.ignore_patterns("__pycache__"))
+    probe = (
+        "import importlib.util, sys\n"
+        f"spec = importlib.util.spec_from_file_location('ad', r'{agent_dir / 'adapters' / 'mcp_server.py'}')\n"
+        "mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)\n"
+        "import fleet_utils.mcp_errors as m\n"
+        "assert m.CALLS == [mod.mcp], m.CALLS\n"
+        "print('wired')\n")
+    out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, cwd=tmp_path)
+    assert out.returncode == 0 and out.stdout.strip() == "wired", out.stderr
 
 
 def test_open_core_layout_shim():
