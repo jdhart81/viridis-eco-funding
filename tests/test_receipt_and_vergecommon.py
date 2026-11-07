@@ -77,7 +77,7 @@ def test_malformed_receipts_are_reported_not_raised():
     assert verify_receipt({"a": object()})["valid"] is False
     bad_inputs = {"receipt_version": "vef-receipt/0.1", "method_version": "vef-method/0.1.0",
                   "inputs": {"site_id": "x"}, "inputs_sha256": "", "result": {}, "result_sha256": "",
-                  "source": None, "seal": {}}
+                  "source": None, "explanation": "", "seal": {}}
     report = verify_receipt(bad_inputs)
     assert report["valid"] is False and report["checks"][-1]["check"] == "inputs_valid"
 
@@ -157,3 +157,16 @@ def test_live_public_directory_is_readable():
         pytest.skip("set VEF_LIVE_NETWORK=1 to read the live public directory")
     out = ReadOnlyVergeCommonClient().list_public_coops(5)
     assert isinstance(out["record"]["coops"], list)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda r: r.update(extra_claim="certified"),
+    lambda r: r["seal"].update(kind="identity signature by a registry"),
+    lambda r: r["seal"].update(extra=1),
+    lambda r: r.update(explanation="edited"),
+    lambda r: r.pop("explanation"),
+])
+def test_receipt_shape_is_exact(woodland_site, mutate):
+    receipt = to_plain_json(make_receipt(woodland_site))
+    mutate(receipt)
+    assert verify_receipt(receipt)["valid"] is False

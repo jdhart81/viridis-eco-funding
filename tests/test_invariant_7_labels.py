@@ -79,3 +79,27 @@ def test_mcp_outputs_carry_the_label(woodland_site):
     assert "conjecture" in asyncio.run(call("verify_receipt",
                                             {"receipt": out["receipt"]}))["explanation"]
     assert "conjecture" in asyncio.run(call("describe_method", {}))["explanation"]
+
+
+def test_explain_label_cannot_be_stripped_by_editing_the_valuation(woodland_site):
+    """Review finding: the label is derived from content, not the caller's flag."""
+    valuation = value_site(woodland_site)
+    valuation["uses_intelligence_bound"] = False
+    valuation["explanation"] = "Site value explained."
+    valuation["labels"] = {"intelligence_bound": "not used"}
+    out = explain_valuation(valuation)
+    assert out["uses_intelligence_bound"] is True
+    assert "conjecture" in out["explanation"]
+    assert out["labels"]["intelligence_bound"] == "conjecture"
+
+
+def test_failed_verification_still_labels_claimed_bound(woodland_site):
+    from viridis_eco_funding.canonical import to_plain_json
+    receipt = to_plain_json(make_receipt(woodland_site))
+    receipt["method_version"] = "vef-method/9.9.9"
+    report = verify_receipt(receipt)
+    assert report["valid"] is False and "conjecture" in report["explanation"]
+
+
+def test_receipt_top_level_explanation_is_labelled(woodland_site):
+    assert "conjecture" in make_receipt(woodland_site)["explanation"]

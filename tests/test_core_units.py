@@ -169,3 +169,26 @@ def test_every_quantity_states_formula_units_inputs_uncertainty(woodland_site):
         assert q["units"] and q["formula"] and q["uncertainty"]["basis"], name
         lo, hi = q["uncertainty"]["ci95"]
         assert lo <= q["value"] <= hi, name
+
+
+@pytest.mark.parametrize("value", ["1e999999999", "1e-400", 10**400, "1e301", "-1e-301"])
+def test_out_of_range_magnitudes_are_value_errors(woodland_site, value):
+    site = clone(woodland_site)
+    site["habitat"]["patches"][0]["area_ha"] = value
+    with pytest.raises(SiteInputError):
+        value_site(site)
+
+
+def test_publish_flushes_subnormal_range_to_zero():
+    from viridis_eco_funding._decimal import publish
+    assert publish(Decimal("3E-313")) == 0
+    assert publish(Decimal("1E-300")) == Decimal("1E-300")
+    assert publish(Decimal("123.4567890123456")) == Decimal("123.456789012")
+
+
+def test_cli_reports_arithmetic_errors_cleanly(tmp_path, capsys):
+    from viridis_eco_funding.cli import main
+    bad = tmp_path / "site.json"
+    bad.write_text('{"site_id": "x", "habitat": {"patches": [{"id": "a", "area_ha": 1e999}]}}')
+    assert main(["value", str(bad)]) == 2
+    assert "error" in capsys.readouterr().err

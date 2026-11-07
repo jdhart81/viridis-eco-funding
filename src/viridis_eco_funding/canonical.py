@@ -16,10 +16,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import unicodedata
 from decimal import Decimal
 from typing import Any
 
-from ._decimal import CONTEXT, to_decimal
+from ._decimal import CONTEXT, pinned, to_decimal
 
 
 def format_decimal(value: Decimal) -> str:
@@ -27,13 +28,20 @@ def format_decimal(value: Decimal) -> str:
         raise ValueError("non-finite number cannot be serialized")
     if value.is_zero():
         return "0"
+    # Context-free formatting: only the pinned CONTEXT is used (for normalize), never the
+    # caller's thread-local context, so the bytes cannot depend on the caller's settings.
     normalized = value.normalize(CONTEXT)
-    sign, digits, _ = normalized.as_tuple()
+    sign, digits, exponent = normalized.as_tuple()
     adjusted = normalized.adjusted()
     text_digits = "".join(str(d) for d in digits)
     prefix = "-" if sign else ""
     if -7 <= adjusted < 21:
-        return prefix + format(abs(normalized), "f")
+        if exponent >= 0:
+            return prefix + text_digits + "0" * exponent
+        point = len(text_digits) + exponent
+        if point > 0:
+            return prefix + text_digits[:point] + "." + text_digits[point:]
+        return prefix + "0." + "0" * (-point) + text_digits
     mantissa = text_digits[0] + ("." + text_digits[1:] if len(text_digits) > 1 else "")
     return f"{prefix}{mantissa}E{adjusted:+d}"
 
@@ -77,6 +85,7 @@ def _encode(obj: Any, out: list[str]) -> None:
         raise TypeError(f"cannot canonicalize {type(obj).__name__}")
 
 
+@pinned
 def canonical_dumps(obj: Any) -> str:
     out: list[str] = []
     _encode(obj, out)
@@ -101,13 +110,17 @@ def _reject_constant(name: str) -> Any:
 
 
 def to_canonical_data(obj: Any) -> Any:
-    """Deep-convert user data (which may contain floats) into canonical-safe data."""
-    if isinstance(obj, bool) or obj is None or isinstance(obj, (str, int, Decimal)):
+    """Deep-convert user data (which may contain floats) into canonical-safe data.
+
+    Strings are NFC-normalized so visually identical text gives identical bytes."""
+    if isinstance(obj, str):
+        return unicodedata.normalize("NFC", obj)
+    if isinstance(obj, bool) or obj is None or isinstance(obj, (int, Decimal)):
         return obj
     if isinstance(obj, float):
         return to_decimal(obj)
     if isinstance(obj, dict):
-        return {str(k): to_canonical_data(v) for k, v in obj.items()}
+        return {unicodedata.normalize("NFC", str(k)): to_canonical_data(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
         return [to_canonical_data(v) for v in obj]
     raise TypeError(f"unsupported type {type(obj).__name__}")

@@ -87,31 +87,32 @@ tampered["result"]["quantities"]["complexity_score"]["value"] = 70
 print("tampered receipt valid:", verify_receipt(tampered)["valid"])"""),
     md("""## 5. Monotonicity: verify the stepping-stone patch
 
-The `stepping-stone` old-field patch is listed but unverified, so it is not scored. Suppose a survey verifies it and an HDFM corridor check confirms its link to the southern core. Invariant 2 guarantees the score cannot fall."""),
+The `stepping-stone` old-field patch is listed but unverified, so it is not scored. Suppose an autumn 2027 survey verifies it and an HDFM corridor check confirms its link to the southern core. Invariant 2 guarantees the score cannot fall."""),
     code("""surveyed = json.loads(json.dumps(site))
 for p in surveyed["habitat"]["patches"]:
     if p["id"] == "stepping-stone":
-        p["verified"], p["evidence"] = True, "SYNTHETIC: spring survey 2027"
+        p["verified"], p["evidence"] = True, "SYNTHETIC: autumn survey 2027"
 for l in surveyed["habitat"]["links"]:
     if l.get("to") == "stepping-stone":
         l.pop("distance_m"); l["hdfm_linked"] = True
-surveyed["observed_at"] = "2027-05-31"
+surveyed["observed_at"] = "2027-11-15"
 after = value_site(surveyed)
 for name in ("verified_area_ha", "eca_ha", "connectivity_fraction", "complexity_score"):
     print(f"{name:24s} {canonical_dumps(valuation['quantities'][name]['value']):>16s} -> {canonical_dumps(after['quantities'][name]['value'])}")
 assert after["quantities"]["complexity_score"]["value"] >= valuation["quantities"]["complexity_score"]["value"]"""),
     md("""## 6. Model a pledge pool (simulation only)
 
-Three pledges and three release rules:
-- **m1**: a verified *receipt* showing K >= 7.0 releases 15 %;
+Three pledges, a quarterly calendar starting 2026-10-01, and three release rules:
+- **m1**: a verified, dated *receipt* showing K >= 7.0 releases 15 % (receipt-backed: it must be for this site, dated inside its quarter, and used once);
 - **m2**: verified area >= 15 ha releases 20 % (no earlier than quarter 2);
 - **o1**: an outcome-linked release of up to 40 %, in proportion to ECA growth from 12 to 15 ha.
 
-The baseline receipt arrives in quarter 0 and the post-survey receipt in quarter 4. Releases plus remaining balance equal pledges in every quarter, and nothing is released without a met rule."""),
+The baseline receipt (observed 2026-10-31) lands in quarter 0 and the post-survey receipt (observed 2027-11-15) in quarter 4. A replay of the baseline receipt in quarter 6 is rejected. Releases plus remaining balance equal pledges in every quarter, and nothing is released without a met rule."""),
     code("""pool = json.loads((DATA / "woodland_pool.json").read_text())
 observations = [
     {"id": "baseline-2026Q4", "period": 0, "receipt": receipt},
-    {"id": "survey-2027Q2", "period": 4, "receipt": make_receipt(surveyed)},
+    {"id": "survey-2027Q4", "period": 4, "receipt": make_receipt(surveyed)},
+    {"id": "replay-attempt", "period": 6, "receipt": receipt},
 ]
 sim = simulate_pool(pool, observations)
 print(f"{'quarter':>7s} {'pledged':>10s} {'released':>10s} {'to date':>10s} {'remaining':>10s}  events")
@@ -122,6 +123,8 @@ print()
 for r in sim["rules"]:
     print(f"{r['id']:28s} {r['status']:9s} met_period={r['met_period']} effective_bps={canonical_dumps(r['effective_bps'])}")
 print()
+for o in sim["observations"]:
+    print(f"observation {o['id']:16s} accepted={o['accepted']}  {o['reason']}")
 print("invariants:", sim["invariants"])
 print(sim["explanation"])"""),
     md("""## What this does and does not show

@@ -129,7 +129,9 @@ The defaults are u_NPP = 0.20 and sigma_T = 1 K. C and W_eq carry the same relat
     result_sha256 = SHA-256( canonical(result) )
     seal          = SHA-256( canonical({receipt_version, method_version, inputs_sha256, result_sha256, source}) )
 
-Canonical JSON uses sorted keys, no whitespace, ASCII and normalized decimals, and it never contains binary floats. All arithmetic runs on Python `Decimal` at 40 significant digits, under one pinned context with half-even rounding. The correctly rounded `ln`, `exp` and `sqrt` mean results do not depend on the platform's math library. Published values are rounded to 12 significant digits, and inputs are quantized to 15 so that a round trip through JSON doubles loses nothing. The seal is a content digest, **not an identity signature** (see LIMITS.md).
+Canonical JSON uses sorted keys, no whitespace, ASCII, NFC-normalized strings and normalized decimals, and it never contains binary floats. All arithmetic runs on Python `Decimal` at 40 significant digits, under one pinned context with half-even rounding. Every entry point pins that context, so the caller's own decimal settings cannot change a single byte. The correctly rounded `ln`, `exp` and `sqrt` mean results do not depend on the platform's math library.
+
+Inputs are quantized to 15 significant digits, and any non-zero input must have a magnitude between 1e-300 and 1e300. Published values are rounded to 12 significant digits, and anything smaller than 1e-300 in magnitude is published as 0 (both steps are monotone). Together these keep every number inside the normal range of IEEE-754 doubles, so a receipt passed through plain JSON (for example via an MCP client) still verifies byte for byte. The receipt shape is exact: unknown top-level fields, an edited explanation, or any change to the seal's algorithm or kind fail verification. The seal is a content digest, **not an identity signature** (see LIMITS.md).
 
 ## 6. Pool simulation (`pool/`)
 
@@ -140,7 +142,9 @@ A pool has pledges (integer minor units of a label such as "USD") and rules. For
     entitled_kr(t)     = floor( amount_k x effective_bps_r(t) / 10000 )   for pledges active at t
     release_kr(t)      = entitled_kr(t) - entitled_kr(t-1)  >= 0
 
-sum_r release_bps_r <= 10 000. Every amount is an integer, and entitlements never decrease, so at every period released + remaining = pledged to date (Invariant 4). Nothing is released without a met rule, and the simulator checks both at runtime. A rule with `requires_receipt: true` counts only readings from receipts that pass `verify_receipt` for the pool's `site_id`.
+sum_r release_bps_r <= 10 000. Every amount is an integer, and entitlements never decrease, so at every period released + remaining = pledged to date (Invariant 4). Nothing is released without a met rule, and the simulator checks both at runtime.
+
+Every v0.1 metric is better when higher, so rules can only reward improvement. Milestone comparators are `>=` or `>`, and an outcome-linked target must exceed its baseline. A rule with `requires_receipt: true` needs the pool to declare `site_id` and a `calendar` (start date and period length in months). It counts a reading only when the receipt meets four conditions: it passes `verify_receipt`; it is for the pool's `site_id`; its `observed_at` date falls inside the observation's period; and it has not already been used in the pool. So a receipt cannot be counted for another site, replayed, or moved to a later period.
 
 ## References
 

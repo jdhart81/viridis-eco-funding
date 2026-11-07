@@ -18,7 +18,7 @@ import re
 from decimal import Decimal
 from typing import Any, Mapping
 
-from ._decimal import ONE, ZERO, quantize_input
+from ._decimal import ONE, ZERO, pinned, quantize_input
 from .canonical import to_canonical_data
 from .constants import (
     DEFAULT_AREA_RELATIVE_UNCERTAINTY,
@@ -321,6 +321,7 @@ def _thermodynamics(raw: Any) -> dict[str, Any] | None:
     }
 
 
+@pinned
 def normalize_site_inputs(raw: Any) -> dict[str, Any]:
     """Validate and normalize site inputs. Raises :class:`SiteInputError` on bad input."""
     data = _obj(to_canonical_data(_obj(raw, "site")), "site")

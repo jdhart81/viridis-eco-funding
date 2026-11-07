@@ -255,6 +255,7 @@ def evaluate(site: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+@pinned
 def value_site(raw_inputs: Any) -> dict[str, Any]:
     """Validate, normalize and value a site. Pure and deterministic."""
     return evaluate(normalize_site_inputs(raw_inputs))

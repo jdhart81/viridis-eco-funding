@@ -12,6 +12,8 @@ import ast
 import io
 import json
 import re
+import shutil
+from pathlib import Path
 
 import pytest
 from conftest import ROOT
@@ -26,45 +28,88 @@ SRC = ROOT / "src" / "viridis_eco_funding"
 
 
 FORBIDDEN_MODULES = {"requests", "httpx", "httpx2", "aiohttp", "urllib3", "http", "socket",
-                     "smtplib", "ftplib", "paramiko", "boto3", "botocore", "websockets", "grpc",
-                     "subprocess", "asyncssh"}
+                     "socketserver", "ssl", "smtplib", "ftplib", "telnetlib", "imaplib", "poplib",
+                     "nntplib", "xmlrpc", "webbrowser", "asyncio", "paramiko", "boto3", "botocore",
+                     "websockets", "websocket", "grpc", "subprocess", "asyncssh", "pycurl", "ctypes"}
+URL_OPENERS = {"urlopen", "build_opener", "install_opener", "OpenerDirector", "Request",
+               "HTTPHandler", "HTTPSHandler", "urlretrieve"}
+WRITE_VERBS = [r"method\s*=\s*['\"](?:POST|PUT|PATCH|DELETE)['\"]", r"\.(?:post|put|patch|delete)\s*\("]
 
 
-def test_static_no_write_capable_network_code():
-    forbidden = [
-        r"method\s*=\s*['\"](?:POST|PUT|PATCH|DELETE)['\"]",
-        r"\.(?:post|put|patch|delete)\s*\(",
-    ]
-    for path in SRC.rglob("*.py"):
+def scan_network(src: Path) -> list[str]:
+    """Static read-only scan of a source tree; returns a list of violations."""
+    hits = []
+    for path in sorted(src.rglob("*.py")):
         text = path.read_text(encoding="utf-8")
-        for pattern in forbidden:
-            match = re.search(pattern, text)
-            assert not match, f"{path.name}: {match.group(0)!r}"
-        for node in ast.walk(ast.parse(text)):
-            if isinstance(node, ast.Import):
-                roots = {alias.name.split(".")[0] for alias in node.names}
-            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
-                roots = {node.module.split(".")[0]}
-            else:
-                continue
-            assert not roots & FORBIDDEN_MODULES, f"{path.name} imports {roots & FORBIDDEN_MODULES}"
-
-
-def test_static_only_vergecommon_module_opens_urls_and_never_with_a_body():
-    for path in SRC.rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for pattern in WRITE_VERBS:
+            for match in re.finditer(pattern, text):
+                hits.append(f"{path.name}: {match.group(0)!r}")
+        tree = ast.parse(text)
         for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] in FORBIDDEN_MODULES:
+                        hits.append(f"{path.name}: imports {alias.name}")
+                    if alias.name.startswith("urllib") and path.name != "vergecommon.py":
+                        hits.append(f"{path.name}: imports {alias.name} outside vergecommon.py")
+            elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+                if node.module.split(".")[0] in FORBIDDEN_MODULES:
+                    hits.append(f"{path.name}: imports from {node.module}")
+                if node.module.startswith("urllib") and any(a.name in URL_OPENERS or a.name == "*"
+                                                            for a in node.names):
+                    hits.append(f"{path.name}: from {node.module} import opener (aliasable)")
+            elif isinstance(node, (ast.Attribute, ast.Name)):
+                name = node.attr if isinstance(node, ast.Attribute) else node.id
+                if name in URL_OPENERS and path.name != "vergecommon.py":
+                    hits.append(f"{path.name}:{node.lineno}: references {name}")
             if isinstance(node, ast.Call):
                 name = getattr(node.func, "attr", getattr(node.func, "id", ""))
-                if name in {"urlopen", "Request", "build_opener"}:
-                    assert path.name == "vergecommon.py", f"{path.name} calls {name}"
-                    keywords = {kw.arg: kw.value for kw in node.keywords}
-                    if name == "Request":
-                        assert isinstance(keywords.get("method"), ast.Constant)
-                        assert keywords["method"].value == "GET"
-                        assert isinstance(keywords.get("data"), ast.Constant)
-                        assert keywords["data"].value is None
-                        assert len(node.args) == 1  # url only; no positional body
+                keywords = {kw.arg: kw.value for kw in node.keywords}
+                if name == "Request":
+                    ok = (len(node.args) == 1 and isinstance(keywords.get("method"), ast.Constant)
+                          and keywords["method"].value == "GET"
+                          and isinstance(keywords.get("data"), ast.Constant)
+                          and keywords["data"].value is None and None not in keywords)
+                    if not ok:
+                        hits.append(f"{path.name}:{node.lineno}: Request must be url-only, data=None, method='GET'")
+                if name in {"urlopen", "open"} and isinstance(node.func, ast.Attribute) and \
+                        getattr(node.func.value, "attr", "") in {"request", "OpenerDirector"}:
+                    if len(node.args) > 1 or "data" in keywords or None in keywords:
+                        hits.append(f"{path.name}:{node.lineno}: urlopen with a body")
+                if name in {"urlopen", "build_opener", "install_opener", "urlretrieve"} and \
+                        path.name == "vergecommon.py" and name != "urlopen":
+                    hits.append(f"{path.name}:{node.lineno}: {name} not allowed")
+    return hits
+
+
+def test_static_source_is_read_only():
+    hits = scan_network(SRC)
+    assert not hits, "\n".join(hits)
+
+
+NETWORK_INJECTIONS = [
+    ("vergecommon.py", "urllib.request.urlopen(url, data=payload)"),
+    ("vergecommon.py", "urllib.request.urlopen(url, payload)"),
+    ("vergecommon.py", "urllib.request.Request(url, payload, method='GET')"),
+    ("vergecommon.py", "urllib.request.Request(url, data=None, method='POST')"),
+    ("valuation.py", "from urllib.request import urlopen as _fetch"),
+    ("valuation.py", "import urllib.request"),
+    ("simulator.py", "import asyncio"),
+    ("simulator.py", "import xmlrpc.client"),
+    ("simulator.py", "import http.client"),
+    ("bound.py", "x = client.post(url)"),
+    ("receipt.py", "opener = urllib.request.build_opener()"),
+]
+
+
+@pytest.mark.parametrize("target, line", NETWORK_INJECTIONS)
+def test_network_scanner_catches_injected_violations(tmp_path, target, line):
+    copy = tmp_path / "src"
+    shutil.copytree(SRC, copy, ignore=shutil.ignore_patterns("__pycache__"))
+    assert scan_network(copy) == []
+    path = next(copy.rglob(target))
+    path.write_text(path.read_text() + "\n\ndef _injected():\n    " + line + "\n")
+    assert scan_network(copy), f"scanner missed {line!r} in {target}"
 
 
 def test_static_no_file_writes_in_source():

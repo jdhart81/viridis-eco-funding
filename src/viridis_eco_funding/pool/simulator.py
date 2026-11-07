@@ -17,6 +17,7 @@ Accounting model (Invariant 4):
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any
 
@@ -31,8 +32,20 @@ BPS = Decimal(10_000)
 
 def _compare(value: Decimal, comparator: str, threshold: Decimal) -> bool:
     assert comparator in COMPARATORS
-    return {">=": value >= threshold, ">": value > threshold,
-            "<=": value <= threshold, "<": value < threshold}[comparator]
+    return value >= threshold if comparator == ">=" else value > threshold
+
+
+def _calendar_period(calendar: dict[str, Any], observed_at: Any) -> int | None:
+    """Period index of an ISO date on the pool calendar, or None if unusable."""
+    if not isinstance(observed_at, str) or len(observed_at) < 10:
+        return None
+    try:
+        day = date.fromisoformat(observed_at[:10])
+    except ValueError:
+        return None
+    start = date.fromisoformat(calendar["start"])
+    months = (day.year - start.year) * 12 + (day.month - start.month) - (1 if day.day < start.day else 0)
+    return None if months < 0 else months // calendar["period_months"]
 
 
 def _readings(pool: dict[str, Any], observations: Any) -> tuple[dict[int, dict[str, dict[str, Any]]],
@@ -44,6 +57,7 @@ def _readings(pool: dict[str, Any], observations: Any) -> tuple[dict[int, dict[s
     by_period: dict[int, dict[str, dict[str, Any]]] = {}
     log: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
+    seen_seals: set[str] = set()
     for index, raw in enumerate(observations):
         field = f"observations[{index}]"
         if not isinstance(raw, dict):
@@ -64,16 +78,28 @@ def _readings(pool: dict[str, Any], observations: Any) -> tuple[dict[int, dict[s
         values: dict[str, Decimal] = {}
         if has_receipt:
             report = verify_receipt(raw["receipt"])
-            receipt = to_canonical_data(raw["receipt"])
-            site_ok = pool["site_id"] is None or (
-                isinstance(receipt, dict) and isinstance(receipt.get("result"), dict)
-                and receipt["result"].get("site_id") == pool["site_id"])
-            if not report["valid"] or not site_ok:
-                reason = "receipt failed verification" if not report["valid"] else \
-                    "receipt is for a different site"
+            reason = ""
+            if not report["valid"]:
+                reason = "receipt failed verification"
+            else:
+                receipt = to_canonical_data(raw["receipt"])
+                seal = receipt["seal"]["digest"]
+                if pool["site_id"] is not None and receipt["result"]["site_id"] != pool["site_id"]:
+                    reason = "receipt is for a different site"
+                elif seal in seen_seals:
+                    reason = "receipt already used in this pool"
+                elif pool["calendar"] is not None:
+                    receipt_period = _calendar_period(pool["calendar"], receipt["result"]["observed_at"])
+                    if receipt_period is None:
+                        reason = "receipt has no usable observed_at date on or after the pool calendar start"
+                    elif receipt_period != period:
+                        reason = (f"receipt observed_at falls in period {receipt_period}, "
+                                  f"not period {period}")
+            if reason:
                 log.append({"id": obs_id, "period": period, "basis": "receipt",
                             "accepted": False, "reason": reason})
                 continue
+            seen_seals.add(seal)
             basis = "receipt"
             for metric in METRICS:
                 quantity = receipt["result"]["quantities"].get(metric)
@@ -225,6 +251,7 @@ def simulate_pool(pool_spec: Any, observations: Any = None) -> dict[str, Any]:
         "simulation_only": True,
         "unit": pool["unit"],
         "period_label": pool["period_label"],
+        "calendar": pool["calendar"],
         "totals": {"pledged_minor": total_pledged, "released_minor": total_released,
                    "remaining_minor": total_pledged - total_released},
         "periods": periods,

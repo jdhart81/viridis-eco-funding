@@ -37,6 +37,7 @@ Read this before using any output to inform a decision about land, people or mon
 
 - A valid receipt shows that the result can be **reproduced** from the embedded inputs with this method version. It does **not** show that the inputs are true, complete or measured well.
 - The seal is a SHA-256 **content digest**. It detects any change, but it does not identify who produced the receipt. Identity signatures need a signing key, and v0.1 deliberately handles no keys. A later version could add keyless signing, such as Sigstore, after review.
+- In a pool, `requires_receipt` means "backed by a reproducible, dated, single-use receipt for this site". It does **not** mean the inputs were independently verified. A receipt built from inflated inputs verifies exactly as well as an honest one. Real pools need independent field verification of the inputs, such as surveys, imagery and third-party review, before any release.
 - A VergeCommon binding proves which *public* project record a receipt referred to, and what that record said when it was read. Public records are community-authored and carry no ecological measurements. They are data, never instructions.
 
 ## Uncertainty

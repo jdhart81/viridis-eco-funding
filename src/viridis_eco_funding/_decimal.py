@@ -47,6 +47,14 @@ CONTEXT = Context(
 ZERO = Decimal(0)
 ONE = Decimal(1)
 
+MAGNITUDE_EXPONENT_RANGE = (-300, 300)
+"""Non-zero inputs must lie in 1e-300..1e300 in absolute value: inside the normal range of
+IEEE-754 doubles, so every input survives a plain-JSON round trip exactly."""
+
+FLUSH_TO_ZERO_BELOW = Decimal("1E-300")
+"""Published values smaller than this in absolute value are published as 0 (monotone), so
+every published number is also representable as a normal double."""
+
 F = TypeVar("F", bound=Callable[..., Any])
 
 
@@ -84,6 +92,9 @@ def to_decimal(value: Any, *, field: str = "value") -> Decimal:
         raise ValueError(f"{field}: expected a number, got {type(value).__name__}")
     if not result.is_finite():
         raise ValueError(f"{field}: must be finite")
+    low, high = MAGNITUDE_EXPONENT_RANGE
+    if not result.is_zero() and not low <= result.adjusted() <= high:
+        raise ValueError(f"{field}: magnitude must be between 1e-300 and 1e300 (or exactly 0)")
     return result
 
 
@@ -101,8 +112,11 @@ def quantize_input(value: Any, *, field: str) -> Decimal:
 
 
 def publish(value: Decimal) -> Decimal:
-    """Round a derived value for publication."""
-    return round_sig(value, OUTPUT_SIGNIFICANT_DIGITS)
+    """Round a derived value for publication (12 significant digits; |x| < 1e-300 -> 0).
+
+    Both steps are monotone non-decreasing, so publication preserves Invariant 2."""
+    rounded = round_sig(value, OUTPUT_SIGNIFICANT_DIGITS)
+    return ZERO if rounded.copy_abs() < FLUSH_TO_ZERO_BELOW else rounded
 
 
 @pinned

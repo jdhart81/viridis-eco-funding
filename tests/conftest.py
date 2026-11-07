@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import random
+import socket
 from pathlib import Path
 from typing import Any
 
@@ -99,3 +100,33 @@ def rng() -> random.Random:
 
 def clone(obj: Any) -> Any:
     return copy.deepcopy(obj)
+
+
+_LOOPBACK = {"127.0.0.1", "::1", "localhost"}
+_real_connect = socket.socket.connect
+_real_connect_ex = socket.socket.connect_ex
+
+
+def _guarded(real):
+    def connect(self, address):
+        host = address[0] if isinstance(address, tuple) else None
+        if self.family != getattr(socket, "AF_UNIX", object()) and host not in _LOOPBACK:
+            raise AssertionError(f"Invariant 6 guard: outbound connection to {address!r} during tests")
+        return real(self, address)
+    return connect
+
+
+@pytest.fixture(autouse=True)
+def block_outbound_network(request, monkeypatch):
+    """Invariant 6, runtime layer: no test may open a non-loopback connection unless it is
+    explicitly marked ``network`` (live, opt-in). Any code path that tries to reach a
+    service during the suite fails loudly."""
+    if request.node.get_closest_marker("network"):
+        yield
+        return
+    # Drop proxy settings so traffic cannot tunnel out through a loopback proxy.
+    for name in ("HTTPS_PROXY", "HTTP_PROXY", "ALL_PROXY", "https_proxy", "http_proxy", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(socket.socket, "connect", _guarded(_real_connect))
+    monkeypatch.setattr(socket.socket, "connect_ex", _guarded(_real_connect_ex))
+    yield

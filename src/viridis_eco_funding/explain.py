@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ._decimal import pinned
 from .canonical import to_canonical_data
 from .constants import (
     CONJECTURE_LABEL,
@@ -49,6 +50,7 @@ LIMITS_SUMMARY = [
 ]
 
 
+@pinned
 def explain_valuation(valuation_or_inputs: Any) -> dict[str, Any]:
     """Explain a valuation result step by step. Accepts a valuation or raw site inputs."""
     data = valuation_or_inputs
@@ -70,22 +72,28 @@ def explain_valuation(valuation_or_inputs: Any) -> dict[str, Any]:
             "status": quantity["status"],
             "notes": quantity["notes"],
         })
-    uses_bound = bool(data.get("uses_intelligence_bound"))
-    explanation = data["explanation"]
-    if uses_bound and CONJECTURE_LABEL not in explanation:  # defensive; evaluate() guarantees it
-        explanation += " The intelligence-bound term is a conjecture."
+    # Decide the label from the content itself: a caller-supplied valuation may have had its
+    # flag or explanation edited, but any conjecture-status quantity still triggers the label.
+    uses_bound = bool(data.get("uses_intelligence_bound")) or any(
+        isinstance(q, dict) and q.get("status") == CONJECTURE_LABEL
+        for q in data["quantities"].values())
+    explanation = str(data.get("explanation", ""))
+    if uses_bound and CONJECTURE_LABEL not in explanation:
+        explanation += (" The complexity-capacity quantities derive from the intelligence bound, "
+                        "which is a conjecture.")
     return {
         "method_version": data["method_version"],
         "site_id": data["site_id"],
         "uses_intelligence_bound": uses_bound,
-        "labels": data["labels"],
+        "labels": {"intelligence_bound": CONJECTURE_LABEL if uses_bound else "not used"},
         "explanation": explanation,
         "steps": steps,
-        "warnings": data["warnings"],
+        "warnings": data.get("warnings", []),
         "limits": LIMITS_SUMMARY,
     }
 
 
+@pinned
 def describe_method() -> dict[str, Any]:
     """Static description of the method, constants, defaults, invariants and citations."""
     return to_canonical_data({
@@ -152,7 +160,9 @@ def describe_method() -> dict[str, Any]:
             "multi-biome gradient using NEON sites. Manuscript MEE-26-04-332, Methods in Ecology and "
             "Evolution (submitted). Data: https://doi.org/10.5281/zenodo.19543988",
             "Hart, J. D. (2026). The Intelligence Bound: a formally verified thermodynamic limit on "
-            "mutual information creation rate. Submitted to Physical Review E.",
+            "mutual information creation rate. Submitted to Physical Review E. (Its Lean 4 "
+            "formalization certifies the reasoning under its stated assumptions, not empirical "
+            "magnitudes; applied to ecosystems the bound remains a conjecture.)",
             "Hart, J. D. The Intelligence Bound: a universal thermodynamic limit on learning unifying "
             "artificial and biological systems. Working paper, Viridis LLC.",
             "Hart, J. D. (2026). A thermodynamic speed limit on planetary restoration. "

@@ -12,14 +12,23 @@ A pool spec describes pledges (amounts in integer minor units of a *label* such 
 
 The sum of ``release_bps`` over all rules may not exceed 10 000, so releases can never
 exceed pledges.
+
+Every v0.1 metric is better when higher, so rules can only reward improvement: milestone
+comparators are ``>=`` or ``>``, and an outcome-linked target must exceed its baseline.
+
+A rule with ``requires_receipt: true`` counts only readings from receipts that verify,
+belong to the pool's ``site_id``, have an ``observed_at`` date inside the observation's
+period on the pool ``calendar``, and have not already been used in the pool. Pools with
+such rules must therefore set ``site_id`` and ``calendar``.
 """
 
 from __future__ import annotations
 
+from datetime import date
 from decimal import Decimal
 from typing import Any, Mapping
 
-from .._decimal import quantize_input
+from .._decimal import pinned, quantize_input
 from ..canonical import to_canonical_data
 from ..constants import POOL_SCHEMA
 
@@ -36,7 +45,7 @@ METRICS = {
 }
 """metric -> whether it derives from the intelligence bound (a conjecture)."""
 
-COMPARATORS = (">=", ">", "<=", "<")
+COMPARATORS = (">=", ">")
 MAX_PLEDGES = 5000
 MAX_RULES = 50
 MAX_HORIZON = 600
@@ -96,10 +105,11 @@ def _dec(value: Any, field: str) -> Decimal:
         raise PoolSpecError(str(exc)) from exc
 
 
+@pinned
 def normalize_pool(raw: Any) -> dict[str, Any]:
     data = _obj(to_canonical_data(_obj(raw, "pool")), "pool")
     _only(data, {"schema", "pool_id", "name", "site_id", "unit", "horizon_periods",
-                 "period_label", "pledges", "rules"}, "pool")
+                 "period_label", "calendar", "pledges", "rules"}, "pool")
     if data.get("schema", POOL_SCHEMA) != POOL_SCHEMA:
         raise PoolSpecError(f"schema: expected {POOL_SCHEMA!r}")
     horizon = _int(data.get("horizon_periods"), "horizon_periods", 1, MAX_HORIZON)
@@ -166,14 +176,16 @@ def normalize_pool(raw: Any) -> dict[str, Any]:
         }
         if rule_type == "milestone":
             if spec.get("comparator") not in COMPARATORS:
-                raise PoolSpecError(f"{field}.comparator: expected one of {list(COMPARATORS)}")
+                raise PoolSpecError(f"{field}.comparator: expected one of {list(COMPARATORS)} "
+                                    "(all metrics are better when higher; rules reward improvement only)")
             rule["comparator"] = spec["comparator"]
             rule["threshold"] = _dec(spec.get("threshold"), f"{field}.threshold")
         else:
             rule["baseline"] = _dec(spec.get("baseline"), f"{field}.baseline")
             rule["target"] = _dec(spec.get("target"), f"{field}.target")
-            if rule["baseline"] == rule["target"]:
-                raise PoolSpecError(f"{field}: target must differ from baseline")
+            if rule["target"] <= rule["baseline"]:
+                raise PoolSpecError(f"{field}: target must exceed baseline "
+                                    "(all metrics are better when higher; rules reward improvement only)")
         rules[rule_id] = rule
     total_bps = sum(rule["release_bps"] for rule in rules.values())
     if total_bps > 10_000:
@@ -181,6 +193,21 @@ def normalize_pool(raw: Any) -> dict[str, Any]:
                             "(releases may never exceed pledges)")
 
     site_id = data.get("site_id")
+    calendar = None
+    if data.get("calendar") is not None:
+        cal = _obj(data["calendar"], "calendar")
+        _only(cal, {"start", "period_months"}, "calendar")
+        try:
+            start = date.fromisoformat(_text(cal.get("start"), "calendar.start", max_len=10))
+        except ValueError as exc:
+            raise PoolSpecError("calendar.start: expected an ISO date YYYY-MM-DD") from exc
+        calendar = {"start": start.isoformat(),
+                    "period_months": _int(cal.get("period_months"), "calendar.period_months", 1, 120)}
+    if any(rule["requires_receipt"] for rule in rules.values()):
+        if site_id is None or calendar is None:
+            raise PoolSpecError("rules with requires_receipt need the pool's site_id and calendar, so "
+                                "receipts cannot be counted for another site or replayed into "
+                                "another period")
     return {
         "schema": POOL_SCHEMA,
         "pool_id": _text(data.get("pool_id"), "pool_id", max_len=120),
@@ -191,6 +218,7 @@ def normalize_pool(raw: Any) -> dict[str, Any]:
                                          1, 1_000_000)},
         "horizon_periods": horizon,
         "period_label": _text(data.get("period_label", "period"), "period_label", max_len=40),
+        "calendar": calendar,
         "pledges": [pledges[key] for key in sorted(pledges)],
         "rules": [rules[key] for key in sorted(rules)],
     }

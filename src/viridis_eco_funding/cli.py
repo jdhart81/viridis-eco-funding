@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
             out = simulate_pool(_load(args.pool), observations)
         else:
             out = describe_method()
-    except (SiteInputError, PoolSpecError, ValueError, OSError) as exc:
+    except (SiteInputError, PoolSpecError, ValueError, ArithmeticError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
     print(canonical_dumps(out))
