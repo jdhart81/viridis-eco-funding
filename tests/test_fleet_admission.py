@@ -213,7 +213,8 @@ def test_fleet_contract_C4_error_flagging_is_wired_inside_a_fleet_tree(tmp_path)
         "import fleet_utils.mcp_errors as m\n"
         "assert m.CALLS == [mod.mcp], m.CALLS\n"
         "print('wired')\n")
-    out = subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True, cwd=tmp_path)
+    # -I: ignore an inherited PYTHONPATH (the fleet test runner puts the real fleet root on it)
+    out = subprocess.run([sys.executable, "-I", "-c", probe], capture_output=True, text=True, cwd=tmp_path)
     assert out.returncode == 0 and out.stdout.strip() == "wired", out.stderr
 
 
