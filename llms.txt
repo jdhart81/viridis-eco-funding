@@ -28,6 +28,5 @@ Method version: vef-method/0.1.0. Fleet endpoint: https://mcp.viridisconservatio
 ## Optional
 
 - [Fleet mount kit](deploy/fleet/MOUNT.md): gateway wiring, registry manifest, quickstart
-
 - [Invariants and how each is enforced](docs/INVARIANTS.md)
 - [Changelog](CHANGELOG.md)
