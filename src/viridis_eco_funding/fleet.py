@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from . import __version__ as _PACKAGE_VERSION
 from .canonical import to_plain_json
 from .constants import CONJECTURE_LABEL, METHOD_VERSION
 from .explain import describe_method, explain_valuation
@@ -87,16 +88,24 @@ class EcoFundingAgentCore:
     KNOWN_ACTIONS = frozenset(ACTIONS)
     READ_ACTIONS = frozenset(ACTIONS)  # every action is a read: nothing is written anywhere
 
+    # Stateless by design. The gateway's StateStore pickles instance state and restores it
+    # at boot, so nothing version-bearing may live on the instance: an old snapshot would
+    # otherwise overwrite the running version after an upgrade.
+    version = _PACKAGE_VERSION
+
     def __init__(self, client_factory: Callable[[], ReadOnlyVergeCommonClient] | None = None):
-        from . import __version__
-        self.version = __version__
-        self._client_factory = client_factory or ReadOnlyVergeCommonClient
+        if client_factory is not None:  # tests inject an offline opener; default keeps __dict__ empty
+            self._client_factory = client_factory
+
+    def _client(self) -> ReadOnlyVergeCommonClient:
+        factory = self.__dict__.get("_client_factory") or ReadOnlyVergeCommonClient
+        return factory()
 
     # -- gateway contract ---------------------------------------------------------
     def describe(self) -> dict[str, Any]:
         return {
             "name": self.name,
-            "version": self.version,
+            "version": _PACKAGE_VERSION,
             "method_version": METHOD_VERSION,
             "capabilities": list(ACTIONS),
             "mount": f"/{MOUNT}/mcp",
@@ -114,7 +123,7 @@ class EcoFundingAgentCore:
             receipt = make_receipt(_HEALTH_SITE)
             ok = verify_receipt(receipt)["valid"]
             return {"status": "ok" if ok else "degraded", "agent": self.name,
-                    "version": self.version, "method_version": METHOD_VERSION,
+                    "version": _PACKAGE_VERSION, "method_version": METHOD_VERSION,
                     "self_test": "receipt reproduced and verified" if ok else "self-test failed"}
         except Exception as exc:  # pragma: no cover - surfaced to /health, never raised
             return {"status": "degraded", "agent": self.name, "error": type(exc).__name__}
@@ -139,7 +148,7 @@ class EcoFundingAgentCore:
         site = payload.get("site")
         source = None
         if payload.get("bind_vergecommon"):
-            source = fetch_and_bind(normalize_site_inputs(site), self._client_factory())
+            source = fetch_and_bind(normalize_site_inputs(site), self._client())
         receipt = to_plain_json(make_receipt(site, source=source))
         result = receipt["result"]
         return _ok("value_site", {
@@ -165,7 +174,7 @@ class EcoFundingAgentCore:
             source = receipt.get("source") if isinstance(receipt, dict) else None
             if not isinstance(source, dict) or source.get("kind") != "vergecommon-public-api":
                 raise ValueError("receipt has no VergeCommon source to refetch")
-            record = self._client_factory().get_public_coop(str(source.get("coop_id")))["record"]
+            record = self._client().get_public_coop(str(source.get("coop_id")))["record"]
         report = to_plain_json(verify_receipt(receipt, source_record=record))
         steps = [_edge("notary", "verify", "If the seal was notarized, check the commitment to "
                        "learn who committed it and when.")]

@@ -198,3 +198,15 @@ def test_open_core_layout_shim():
     spec.loader.exec_module(module)
     assert module.build().describe()["name"] == "viridis-eco-funding"
     assert (ROOT / "adapters" / "mcp_server.py").is_file() and (ROOT / "tests").is_dir()
+
+
+def test_core_is_stateless_for_the_gateway_state_store():
+    """StateStore pickles instance state and restores it at boot; a default core must carry
+    none, so a stale snapshot can never override the running version."""
+    import pickle
+    core = build()
+    assert core.__dict__ == {}
+    restored = build()
+    restored.__dict__.update(pickle.loads(pickle.dumps({"version": "0.0.0-stale"})))
+    assert restored.describe()["version"] == restored.health()["version"] == build().describe()["version"]
+    assert restored.describe()["version"] != "0.0.0-stale"
