@@ -47,5 +47,5 @@ Read this before using any output to inform a decision about land, people or mon
 
 ## Scope of v0.1
 
-- The repository is private. It has no PyPI release, no MCP registry listing and no public announcement. Each of those waits for an explicit decision.
+- The repository is public and listed in the official MCP Registry as io.github.jdhart81/eco-funding. It has no PyPI release yet.
 - It does not fetch remote sensing, iNaturalist, GBIF or SoilGrids data itself. The caller supplies the measurements, with their sources.
