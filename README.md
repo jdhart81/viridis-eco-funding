@@ -4,7 +4,7 @@
 
 > **NOTICE.** Any real funding pool needs legal review before money moves. This software holds, moves and releases no funds. It computes ecological measures and simulates pool rules. Viridis builds and licenses software only. Viridis never runs a co-op, holds funds or sells financial products.
 
-**Status:** v0.1.0. Private working repository with the Apache-2.0 license. Not peer reviewed. The D-Score is under journal review. The intelligence bound is a **conjecture**, and every output that uses it says so.
+**Status:** v0.1.0. Public repository under the Apache-2.0 license. Not peer reviewed. The D-Score is under journal review. The intelligence bound is a **conjecture**, and every output that uses it says so.
 
 ## What it does
 
